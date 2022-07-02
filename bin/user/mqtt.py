@@ -28,7 +28,7 @@ The observations can be sent individually, or in an aggregated packet:
 [StdRestful]
     [[MQTT]]
         ...
-        aggregation = individual, aggregate # individual, aggregate, or both
+        aggregation = individual, aggregate  # individual, aggregate, or both
 
 Bind to loop packets or archive records:
 
@@ -136,7 +136,7 @@ from weeutil.weeutil import to_int, to_bool, accumulateLeaves
 import weeutil.weeutil
 import weewx.xtypes
 
-VERSION = "0.25"
+VERSION = "0.26"
 
 if weewx.__version__ < "3":
     raise weewx.UnsupportedFeature("weewx 3 is required, found %s" %
@@ -291,6 +291,9 @@ class MQTT(weewx.restx.StdRESTbase):
         
         if 'calculations' in config_dict['StdRESTful']['MQTT']:
             site_dict['calculations'] = config_dict['StdRESTful']['MQTT']['calculations']
+            
+        if 'json' in config_dict['StdRESTful']['MQTT']:
+            site_dict['jsonoutput'] = config_dict['StdRESTful']['MQTT']['json']
 
         site_dict['append_units_label'] = to_bool(site_dict.get('append_units_label'))
         site_dict['augment_record'] = to_bool(site_dict.get('augment_record'))
@@ -401,7 +404,8 @@ class MQTTThread(weewx.restx.RESTThread):
                  log_success=True, log_failure=True,
                  timeout=60, max_tries=3, retry_wait=5,
                  max_backlog=sys.maxsize,
-                 calculations={'dayRain':'day.rain.sum'}):
+                 calculations={'dayRain':'day.rain.sum'},
+                 jsonoutput={}):
         super(MQTTThread, self).__init__(queue,
                                          protocol_name='MQTT',
                                          manager_dict=manager_dict,
@@ -434,6 +438,7 @@ class MQTTThread(weewx.restx.RESTThread):
             logdbg("TLS parameters: %s" % self.tls_dict)
         self.inputs = inputs
         self.calculations = calculations
+        self.jsonoutput = jsonoutput
         self.unit_system = unit_system
         self.augment_record = augment_record
         self.retain = retain
@@ -526,6 +531,20 @@ class MQTTThread(weewx.restx.RESTThread):
                     for key in data:
                         tpc = self.topic + '/' + key
                         (res, mid) = mc.publish(tpc, data[key],
+                                                retain=self.retain)
+                        if res != mqtt.MQTT_ERR_SUCCESS:
+                            logerr("publish failed for %s: %s" % (tpc, res))
+                if self.jsonoutput:
+                    for key in self.jsonoutput:
+                        tpc = self.topic + '/' + key
+                        jd = dict()
+                        for k in data:
+                            kk = k.split('_')
+                            if len(kk)>1: kk.pop()
+                            kk = '_'.join(kk)
+                            if kk in self.jsonoutput[key]:
+                                jd[k] = data[k]
+                        (res, mid) = mc.publish(tpc, json.dumps(jd),
                                                 retain=self.retain)
                         if res != mqtt.MQTT_ERR_SUCCESS:
                             logerr("publish failed for %s: %s" % (tpc, res))
