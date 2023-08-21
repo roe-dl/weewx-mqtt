@@ -582,6 +582,20 @@ class MQTTThread(weewx.restx.RESTThread):
                 if res != mqtt.MQTT_ERR_SUCCESS:
                     logerr("publish failed for %s: %s" %
                            (tpc, mqtt.error_string(res)))
+        if self.jsonoutput:
+            for key in self.jsonoutput:
+                tpc = self.topic + '/' + key
+                jd = dict()
+                for k in data:
+                    kk = k.split('_')
+                    if len(kk)>1: kk.pop()
+                    kk = '_'.join(kk)
+                    if kk in self.jsonoutput[key]:
+                        jd[k] = data[k]
+                    (res, mid) = self.mc.publish(tpc, json.dumps(jd),
+                                                 retain=self.retain)
+                    if res != mqtt.MQTT_ERR_SUCCESS:
+                        logerr("publish failed for %s: %s" % (tpc, res))
 
     PERIODS = {
         'day':lambda _time_ts:weeutil.weeutil.archiveDaySpan(_time_ts),
