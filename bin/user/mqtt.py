@@ -414,7 +414,7 @@ class MQTTThread(weewx.restx.RESTThread):
                  log_success=True, log_failure=True,
                  timeout=60, max_tries=3, retry_wait=5,
                  max_backlog=sys.maxsize,
-                 augmentations={'dayRain':'day.rain.sum'}):
+                 augmentations={'dayRain':'day.rain.sum'},
                  jsonoutput={}):
         super(MQTTThread, self).__init__(queue,
                                          protocol_name='MQTT',
